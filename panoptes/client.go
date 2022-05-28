@@ -2,6 +2,7 @@ package panoptes
 
 import (
 	"errors"
+	"fmt"
 
 	"golang.org/x/sys/windows"
 )
@@ -21,6 +22,8 @@ func (c *Client) AddProvider(prov Provider) error {
 		return errors.New("Empty provider name")
 	}
 
+	fmt.Println(c.providers)
+	fmt.Println(prov.Name)
 	if _, ok := c.providers[prov.Name]; ok {
 		return errors.New("A provider with the same name is already registered")
 	} else {
@@ -45,6 +48,6 @@ func (c *Client) IsRunning() bool { return c.running }
 func (c *Client) GetProviders() map[string]Provider { return c.providers }
 
 func NewClient() *Client {
-	cp := Client{running: false}
+	cp := Client{running: false, providers: map[string]Provider{}}
 	return &cp
 }
