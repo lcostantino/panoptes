@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"os/signal"
 
 	"github.com/lcostantino/Panoptes/panoptes"
 	"github.com/logrusorgru/aurora"
@@ -56,6 +58,10 @@ func parseConfigFile(fName string) []panoptes.Provider {
 	//register your own callback etc..
 }
 
+func jsonEtwCallback(e *panoptes.Event) {
+	fmt.Printf("%#v\n", e)
+}
+
 func main() {
 	au = aurora.NewAurora(true)
 	fmt.Println(au.Sprintf(au.Green("---- [ Panoptes Ver: %s ] ----\n"), au.BrightGreen(version)))
@@ -68,7 +74,22 @@ func main() {
 
 	for _, r := range providers {
 		if err := client.AddProvider(r); err != nil {
-			GLogger.Error().Err(err).Msg("Failed to add provider")
+			GLogger.Error().Err(err).Str("guid", r.Guid).Str("name", r.Name).Msg("Failed to add provider")
+		} else {
+			GLogger.Info().Str("guid", r.Guid).Str("name", r.Name).Msg("Registered")
 		}
 	}
+
+	client.Start(jsonEtwCallback)
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
+
+	for range sigCh {
+		log.Printf("[DBG] Shutting the session down")
+		client.Stop()
+		os.Exit(0)
+	}
+	client.Pull()
+
 }

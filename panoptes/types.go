@@ -1,6 +1,7 @@
 package panoptes
 
 import (
+	"github.com/bi-zone/etw"
 	"golang.org/x/sys/windows"
 )
 
@@ -33,4 +34,8 @@ type Provider struct {
 	Options SessionOptions `json:"options"`
 	Report  ReportMode     `json:"report"`
 	winGuid windows.GUID
+}
+
+type Event struct {
+	EtwEvent *etw.Event
 }
