@@ -1,1 +1,2 @@
-set CC=x86_64-w64-mingw32-gcc
+set CC=aarch64-none-elf-gcc
+set PATH=C:\gnuarm\bin;%PATH%;

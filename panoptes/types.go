@@ -1,14 +1,13 @@
 package panoptes
 
 import (
-	"github.com/bi-zone/etw"
 	"golang.org/x/sys/windows"
 )
 
 //This will convert exactly the same as bi-zone/etw lib but i wrap it just in case we change it later on..
 
 type SessionOptions struct {
-	Level string `json:"level"`
+	Level int `json:"level"`
 
 	// If MatchAnyKeyword is not set the session will receive ALL possible
 	// events (which is equivalent setting all 64 bits to 1).
@@ -37,5 +36,7 @@ type Provider struct {
 }
 
 type Event struct {
-	EtwEvent *etw.Event
+	EventData map[string]interface{}
+	Guid      string //to avoid header reconstruction on each event
+	Name      string
 }
