@@ -24,6 +24,10 @@ func (c *Client) AddProvider(prov Provider) error {
 	if prov.Name == "" {
 		return errors.New("Empty provider name")
 	}
+	if prov.Report != Json && prov.Report != GoCallback {
+		return errors.New("Invalid report mode")
+	}
+
 	if _, ok := c.providers[prov.Name]; ok {
 		return errors.New("A provider with the same name is already registered")
 	} else {
@@ -59,17 +63,15 @@ func (c *Client) Start(eventChan chan Event, errorChan chan error) error {
 
 	for _, r := range c.providers {
 		aLevel := getLevelFor(r.Options.Level)
-		if sess, err := etw.NewSession(r.winGuid, etw.WithLevel(aLevel)); err == nil {
+		if sess, err := etw.NewSession(r.winGuid, etw.WithLevel(aLevel), etw.WithMatchKeywords(r.Options.MatchAnyKeyword, r.Options.MatchAllKeyword)); err == nil {
 			c.currentSessions = append(c.currentSessions, sess)
 			go func(guid, name string) {
 				c.wg.Add(1)
 				if err := sess.Process(func(e *etw.Event) {
 					event := make(map[string]interface{})
-
 					event["Header"] = e.Header
 					if data, err := e.EventProperties(); err == nil {
 						event["Props"] = data
-
 					} else {
 						errorChan <- err
 					}

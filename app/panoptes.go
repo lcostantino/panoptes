@@ -10,19 +10,22 @@ import (
 	"sync"
 
 	"github.com/lcostantino/Panoptes/panoptes"
+	"github.com/lcostantino/go-duktape"
 	"github.com/logrusorgru/aurora"
 )
 
 var version = "replace"
 
 type PanoptesArgs struct {
-	verbose    bool
-	configFile string
-	logFile    string
+	stdout         bool
+	configFile     string
+	logFile        string
+	javascriptFile string
+	consumers      int
 }
 
 func init() {
-	NewLogger(false, true)
+
 }
 
 var au aurora.Aurora
@@ -33,7 +36,10 @@ func parseCommandLineAndValidate() PanoptesArgs {
 	args := PanoptesArgs{}
 
 	flag.StringVar(&args.configFile, "config-file", "", "Config file for sensors")
-	flag.BoolVar(&args.verbose, "verbose", false, "Verbose")
+	flag.BoolVar(&args.stdout, "stdout", true, "Print to stdout")
+	flag.StringVar(&args.logFile, "log-file", "", "Log file")
+	flag.StringVar(&args.javascriptFile, "js-file", "", "JS processor file")
+	flag.IntVar(&args.consumers, "consumers", 1, "number of consumer routines")
 	flag.Parse()
 	if args.configFile == "" {
 		fmt.Println(au.Red("Error: You need to provide a valid config file\n"))
@@ -61,7 +67,7 @@ func parseConfigFile(fName string) []panoptes.Provider {
 }
 
 //Similar to https://github.com/bi-zone/etw/blob/master/examples/tracer/main.go
-func consumer(eventChan chan panoptes.Event, errorChan chan error, ctx context.Context) {
+func consumer(eventChan chan panoptes.Event, errorChan chan error, ctx context.Context, jsChan chan panoptes.Event) {
 
 	for {
 		select {
@@ -72,10 +78,13 @@ func consumer(eventChan chan panoptes.Event, errorChan chan error, ctx context.C
 			if !ok {
 				return
 			}
-
-			jdata, _ := json.Marshal(e.EventData)
-			GLogger.Info().RawJSON("etwEvent", jdata).Str("name", e.Name).Str("guid", e.Guid).Msg("Data")
-
+			e.Marshalled, _ = json.Marshal(e.EventData)
+			//If JS enabled let it decide wether to output or not the data
+			if jsChan != nil {
+				jsChan <- e
+			} else {
+				GLogger.Info().RawJSON("etwEvent", []byte(e.Marshalled)).Str("name", e.Name).Str("guid", e.Guid).Msg("Data")
+			}
 		case err := <-errorChan:
 			GLogger.Error().Err(err).Msg("Error consuming event")
 			return
@@ -85,24 +94,41 @@ func consumer(eventChan chan panoptes.Event, errorChan chan error, ctx context.C
 
 }
 
-//This can be done with channels too
-func errorCbk(err error) {
-	GLogger.Error().Err(err).Msg("Failed to process event")
+//We can create multiples runtimes or in this case, just ONE to avoid locks and shared state for the moment.
+func jsProcessor(eventChan chan panoptes.Event, jsCtx *duktape.Context, ctx context.Context) {
 
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case e := <-eventChan:
+			jsCtx.PushGlobalObject()
+			jsCtx.GetPropString(-1, "panoptesProcess")
+			jsCtx.PushString(string(e.Marshalled))
+			if jsCtx.Pcall(1) == 0 {
+				if str := jsCtx.SafeToString(-1); str != "" {
+					GLogger.Info().RawJSON("etwEvent", []byte(str)).Str("name", e.Name).Str("guid", e.Guid).Msg("Data")
+				}
+			}
+			jsCtx.Pop3()
+		}
+	}
 }
 
 func stopApplication(cancelFnc context.CancelFunc, wg *sync.WaitGroup, c *panoptes.Client) {
-	c.Stop()
 	cancelFnc()
+	c.Stop()
 	wg.Wait()
 	os.Exit(0)
 }
+
 func main() {
 	au = aurora.NewAurora(true)
 	fmt.Println(au.Sprintf(au.Green("---- [ Panoptes Ver: %s ] ----\n"), au.BrightGreen(version)))
 	args := parseCommandLineAndValidate()
 
-	fmt.Println(args)
+	NewLogger(args.logFile, args.stdout)
+
 	client := panoptes.NewClient()
 
 	providers := parseConfigFile(args.configFile)
@@ -117,6 +143,7 @@ func main() {
 
 	eventChan := make(chan panoptes.Event, 10)
 	errorChan := make(chan error)
+	var jsChan chan panoptes.Event
 
 	//just in case
 	var wg sync.WaitGroup
@@ -124,9 +151,45 @@ func main() {
 	defer close(eventChan)
 	defer close(errorChan)
 
+	if args.javascriptFile != "" {
+		jsChan = make(chan panoptes.Event, args.consumers)
+		jsCtx := duktape.New()
+		jsCtx.PushTimers()
+		if data, err := os.ReadFile(args.javascriptFile); err != nil {
+			GLogger.Error().Err(err).Msg("Error reading JS file")
+			stopApplication(cancel, &wg, client)
+		} else {
+			pStrData := string(data)
+			jsCtx.PushLstring(pStrData, len(pStrData))
+			if err := jsCtx.Peval(); err != nil {
+				GLogger.Error().Err(err).Msg("Error parsing JS file")
+				stopApplication(cancel, &wg, client)
+
+			}
+			jsCtx.Pop()
+			//Test the method exists
+			jsCtx.PushGlobalObject()
+			jsCtx.GetPropString(-1, "panoptesProcess")
+			jsCtx.PushString("{}")
+			if jsCtx.Pcall(1) != 0 {
+				str := jsCtx.SafeToString(-1)
+				GLogger.Error().Str("error", str).Msg("Missing required function panoptesProcess(jsonData) {} ")
+				stopApplication(cancel, &wg, client)
+			}
+			jsCtx.Pop3()
+			defer jsCtx.DestroyHeap()
+		}
+		go func() {
+			jsProcessor(jsChan, jsCtx, ctx)
+			defer wg.Done()
+		}()
+		wg.Add(1)
+
+	}
+
 	go func() {
-		consumer(eventChan, errorChan, ctx)
-		wg.Done()
+		consumer(eventChan, errorChan, ctx, jsChan)
+		defer wg.Done()
 	}()
 	wg.Add(1)
 

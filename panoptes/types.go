@@ -23,8 +23,7 @@ type ReportMode string
 
 const (
 	Json       ReportMode = "json"
-	Js                    = "js"
-	GoCallback            = "GoCallback"
+	GoCallback            = "go"
 )
 
 type Provider struct {
@@ -36,7 +35,8 @@ type Provider struct {
 }
 
 type Event struct {
-	EventData map[string]interface{}
-	Guid      string //to avoid header reconstruction on each event
-	Name      string
+	EventData  map[string]interface{}
+	Guid       string //to avoid header reconstruction on each event
+	Name       string
+	Marshalled []byte //json marshall result
 }

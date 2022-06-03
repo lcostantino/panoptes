@@ -48,11 +48,9 @@ func TestClient_AddProviderDuplicate(t *testing.T) {
 
 	provider := newProvider("{1C95126E-7EEA-49A9-A3FE-A378B03DDB4D}", "Prov")
 	provider2 := provider
-
 	c := NewClient()
 	if err := c.AddProvider(provider); err != nil {
 		t.Errorf("Client.AddProvider() error = %v", err)
-
 	}
 	if err := c.AddProvider(provider2); err == nil {
 		t.Errorf("Client.AddProvider(2) - Expected error")
