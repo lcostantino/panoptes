@@ -1,5 +1,7 @@
 [
  
-    {"name": "dns-query", "guid": "{1C95126E-7EEA-49A9-A3FE-A378B03DDB4D}", "report": "json", "options": {"level": 5, "matchAnyKeyword": 0, "matchAllKeyword": 0} }   
+    {"name": "dns-query", "guid": "{1C95126E-7EEA-49A9-A3FE-A378B03DDB4D}", "disabled": true, "report": "json", "options": {"level": 5, "matchAnyKeyword": 0, "matchAllKeyword": 0, "eventIds":[]} }   ,
+    {"name": "scm-service", "guid": "{555908d1-a6d7-4695-8e1e-26931d2012f4}", "disabled": true, "report": "json", "options": {"level": 5, "matchAnyKeyword": 0, "matchAllKeyword": 0, "eventIds":[]} }   ,
+    {"name": "kernel", "guid": "{22fb2cd6-0e7b-422b-a0c7-2fad1fd0e716}", "disabled": false, "report": "json", "options": {"level": 5, "matchAnyKeyword": 0, "matchAllKeyword": 0, "eventIds":[1, 5, 8]} }  
 ]
 

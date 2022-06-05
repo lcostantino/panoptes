@@ -54,7 +54,7 @@ func parseConfigFile(fName string) []panoptes.Provider {
 		GLogger.Error().Err(err).Msg("Failed to open config file")
 		os.Exit(1)
 	} else {
-		mProviders := make([]panoptes.Provider, 10)
+		var mProviders []panoptes.Provider
 		if err := json.Unmarshal(data, &mProviders); err != nil {
 			GLogger.Error().Err(err).Msg("Failed to parse config file")
 			os.Exit(1)
@@ -87,7 +87,6 @@ func consumer(eventChan chan panoptes.Event, errorChan chan error, ctx context.C
 			}
 		case err := <-errorChan:
 			GLogger.Error().Err(err).Msg("Error consuming event")
-			return
 
 		}
 	}
@@ -134,6 +133,9 @@ func main() {
 	providers := parseConfigFile(args.configFile)
 
 	for _, r := range providers {
+		if r.Disabled == true {
+			continue
+		}
 		if err := client.AddProvider(r); err != nil {
 			GLogger.Error().Err(err).Str("guid", r.Guid).Str("name", r.Name).Msg("Failed to add provider")
 		} else {

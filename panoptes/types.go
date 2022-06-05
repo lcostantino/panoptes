@@ -17,6 +17,8 @@ type SessionOptions struct {
 	// This mask is not used if MatchAnyKeyword is zero.
 	// all keywords must match ..
 	MatchAllKeyword uint64 `json:"matchAllKeyword"`
+
+	FilterEventIds []uint16 `json:"eventIds"`
 }
 
 type ReportMode string
@@ -27,11 +29,12 @@ const (
 )
 
 type Provider struct {
-	Guid    string         `json:"guid"`
-	Name    string         `json:"name"`
-	Options SessionOptions `json:"options"`
-	Report  ReportMode     `json:"report"`
-	winGuid windows.GUID
+	Guid     string         `json:"guid"`
+	Name     string         `json:"name"`
+	Options  SessionOptions `json:"options"`
+	Report   ReportMode     `json:"report"`
+	winGuid  windows.GUID
+	Disabled bool `json:"disabled"`
 }
 
 type Event struct {

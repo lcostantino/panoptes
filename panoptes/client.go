@@ -65,23 +65,39 @@ func (c *Client) Start(eventChan chan Event, errorChan chan error) error {
 		aLevel := getLevelFor(r.Options.Level)
 		if sess, err := etw.NewSession(r.winGuid, etw.WithLevel(aLevel), etw.WithMatchKeywords(r.Options.MatchAnyKeyword, r.Options.MatchAllKeyword)); err == nil {
 			c.currentSessions = append(c.currentSessions, sess)
-			go func(guid, name string) {
+
+			go func(guid, name string, filterIds []uint16) {
 				c.wg.Add(1)
 				if err := sess.Process(func(e *etw.Event) {
+					if filterIds != nil && len(filterIds) > 0 {
+						matched := false
+						//Will be replaced by Event Filter ID at ETW lvl (win10sdk)
+						for _, fId := range filterIds {
+							if fId == uint16(e.Header.ID) {
+								matched = true
+								break
+							}
+
+						}
+						if matched == false {
+							return
+						}
+					}
 					event := make(map[string]interface{})
 					event["Header"] = e.Header
+					//Ideally, this will encoded base64 the raw data so it can be parsed with JS :)
+					event["ExtendedData"] = e.ExtendedInfo()
 					if data, err := e.EventProperties(); err == nil {
 						event["Props"] = data
 					} else {
 						errorChan <- err
 					}
-
 					eventChan <- Event{EventData: event, Name: name, Guid: guid}
 				}); err != nil {
 					errorChan <- err
 				}
 				defer c.wg.Done()
-			}(r.Guid, r.Name)
+			}(r.Guid, r.Name, r.Options.FilterEventIds)
 		} else {
 			return err
 		}
