@@ -31,3 +31,16 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+
+archives:
+  - 
+    format_overrides:
+      - goos: windows
+        format: zip
+
+      files:
+        - LICENSE.txt
+        - README.md
+        - apps/*.json
+        - apps/*.js
+  
