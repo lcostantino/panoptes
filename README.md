@@ -1,5 +1,8 @@
 # Panoptes
 
+
+<img src="/monster.jpg" width="512" height="512">
+
 ## Description
 
 Panoptes is just a simple ETW wrapper that allows to subscribe to different providers thru config files and post-process the events using duktape JS runtime
