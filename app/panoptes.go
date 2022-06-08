@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"time"
 
 	"github.com/lcostantino/Panoptes/panoptes"
 	"github.com/lcostantino/go-duktape"
@@ -22,6 +23,7 @@ type PanoptesArgs struct {
 	logFile        string
 	javascriptFile string
 	consumers      int
+	stopFile       string
 }
 
 func init() {
@@ -38,6 +40,7 @@ func parseCommandLineAndValidate() PanoptesArgs {
 	flag.StringVar(&args.configFile, "config-file", "", "Config file for sensors")
 	flag.BoolVar(&args.stdout, "stdout", true, "Print to stdout")
 	flag.StringVar(&args.logFile, "log-file", "", "Log file")
+	flag.StringVar(&args.stopFile, "stop-file", "", "If the file is present stop the application")
 	flag.StringVar(&args.javascriptFile, "js-file", "", "JS processor file")
 	flag.IntVar(&args.consumers, "consumers", 1, "number of consumer routines")
 	flag.Parse()
@@ -204,6 +207,21 @@ func main() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt)
 
+	//Add Watchdog - usefully when running as PPL
+	if args.stopFile != "" {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		go func() {
+			for {
+				select {
+				case _ = <-ticker.C:
+					if _, err := os.Stat(args.stopFile); err != nil {
+						sigCh <- os.Interrupt
+					}
+				}
+			}
+		}()
+	}
 	for range sigCh {
 		GLogger.Info().Msg("Shutting the session down")
 		stopApplication(cancel, &wg, client)
