@@ -2,6 +2,7 @@ package panoptes
 
 import (
 	"errors"
+	"strconv"
 	"sync"
 
 	"github.com/bi-zone/etw"
@@ -63,7 +64,16 @@ func (c *Client) Start(eventChan chan Event, errorChan chan error) error {
 
 	for _, r := range c.providers {
 		aLevel := getLevelFor(r.Options.Level)
-		if sess, err := etw.NewSession(r.winGuid, etw.WithLevel(aLevel), etw.WithMatchKeywords(r.Options.MatchAnyKeyword, r.Options.MatchAllKeyword)); err == nil {
+		var anyKeyword, allKeyword uint64
+		var kerr error
+		if anyKeyword, kerr = strconv.ParseUint(r.Options.MatchAnyKeyword, 16, 64); kerr != nil {
+			return errors.New("Failed to parse any keywords: " + kerr.Error())
+		}
+		if allKeyword, kerr = strconv.ParseUint(r.Options.MatchAllKeyword, 16, 64); kerr != nil {
+			return errors.New("Failed to parse all keywords: " + kerr.Error())
+		}
+
+		if sess, err := etw.NewSession(r.winGuid, etw.WithLevel(aLevel), etw.WithMatchKeywords(anyKeyword, allKeyword)); err == nil {
 			c.currentSessions = append(c.currentSessions, sess)
 
 			go func(guid, name string, filterIds []uint16) {

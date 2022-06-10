@@ -12,11 +12,11 @@ type SessionOptions struct {
 	// If MatchAnyKeyword is not set the session will receive ALL possible
 	// events (which is equivalent setting all 64 bits to 1).
 	// https://docs.microsoft.com/en-us/windows/win32/api/evntrace/nf-evntrace-enabletraceex2#remarks
-	MatchAnyKeyword uint64 `json:"matchAnyKeyword"`
+	MatchAnyKeyword string `json:"matchAnyKeyword"`
 
 	// This mask is not used if MatchAnyKeyword is zero.
 	// all keywords must match ..
-	MatchAllKeyword uint64 `json:"matchAllKeyword"`
+	MatchAllKeyword string `json:"matchAllKeyword"`
 
 	FilterEventIds []uint16 `json:"eventIds"`
 }
