@@ -40,7 +40,7 @@ func parseCommandLineAndValidate() PanoptesArgs {
 	flag.StringVar(&args.configFile, "config-file", "", "Config file for sensors")
 	flag.BoolVar(&args.stdout, "stdout", true, "Print to stdout")
 	flag.StringVar(&args.logFile, "log-file", "", "Log file")
-	flag.StringVar(&args.stopFile, "stop-file", "", "If the file is present stop the application")
+	flag.StringVar(&args.stopFile, "stop-file", "", "If the file is NOT present, the application will stop")
 	flag.StringVar(&args.javascriptFile, "js-file", "", "JS processor file")
 	flag.IntVar(&args.consumers, "consumers", 1, "number of consumer routines")
 	flag.Parse()
@@ -159,6 +159,21 @@ func main() {
 	if args.javascriptFile != "" {
 		jsChan = make(chan panoptes.Event, args.consumers)
 		jsCtx := duktape.New()
+		jsCtx.PushGlobalGoFunction("log", func(c *duktape.Context) int {
+
+			fName := c.SafeToString(-2)
+			if fName != "" {
+				if ds, err := os.OpenFile(fName, os.O_APPEND, 0777); err == nil {
+					ds.WriteString(c.SafeToString(-1))
+					ds.Close()
+
+				} else {
+					GLogger.Error().Err(err).Msg("Error writing to log from JS script")
+				}
+			}
+
+			return 0
+		})
 		jsCtx.PushTimers()
 		if data, err := os.ReadFile(args.javascriptFile); err != nil {
 			GLogger.Error().Err(err).Msg("Error reading JS file")
