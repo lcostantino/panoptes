@@ -159,20 +159,21 @@ func main() {
 	if args.javascriptFile != "" {
 		jsChan = make(chan panoptes.Event, args.consumers)
 		jsCtx := duktape.New()
-		jsCtx.PushGlobalGoFunction("log", func(c *duktape.Context) int {
+		jsCtx.PushGlobalGoFunction("pLog", func(c *duktape.Context) int {
 
 			fName := c.SafeToString(-2)
 			if fName != "" {
-				if ds, err := os.OpenFile(fName, os.O_APPEND, 0777); err == nil {
+				if ds, err := os.OpenFile(fName, os.O_APPEND|os.O_CREATE, 0777); err == nil {
 					ds.WriteString(c.SafeToString(-1))
 					ds.Close()
-
+					return 0
 				} else {
 					GLogger.Error().Err(err).Msg("Error writing to log from JS script")
+
 				}
 			}
+			return 1
 
-			return 0
 		})
 		jsCtx.PushTimers()
 		if data, err := os.ReadFile(args.javascriptFile); err != nil {
