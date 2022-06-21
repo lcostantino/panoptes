@@ -9,6 +9,14 @@ Panoptes is just a simple ETW wrapper that allows to subscribe to different prov
 
 Events are serialized to JSON
 
+## Build
+
+ETW lib depends on cygwin , so x86_64-w64-mingw32-gcc must be installed.
+
+This project uses [GoReleaser](https://goreleaser.com), execute build.sh or build_tmp.sh to compile the project. 
+
+
+
 
 ## Config File
 
