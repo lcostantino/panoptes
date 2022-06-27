@@ -52,8 +52,7 @@ This project uses [GoReleaser](https://goreleaser.com), execute build.sh or buil
 
 
 ## Usage
-
-```
+Usage of panoptes.exe:
   -config-file string
         Config file for sensors
   -consumers int
@@ -64,6 +63,9 @@ This project uses [GoReleaser](https://goreleaser.com), execute build.sh or buil
         Log file
   -stdout
         Print to stdout (default true)
+  -stop-file string
+        If the file is not present Panoptes will stop
+
 ```
 
 
@@ -81,3 +83,8 @@ function panoptesProcess(jsonData) {
     return  JSON.stringify(jsObject)
 }
 ```
+
+### Special JS Bindings
+
+func pLog(dstFile, str) -> Log to a specific file, ex: pLog("C:\\tmp\\a.txt", "Weird Process found")
+
