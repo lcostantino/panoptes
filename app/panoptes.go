@@ -40,7 +40,7 @@ func parseCommandLineAndValidate() PanoptesArgs {
 
 	flag.StringVar(&args.configFile, "config-file", "", "Config file for sensors")
 	flag.BoolVar(&args.stdout, "stdout", true, "Print to stdout")
-	flag.StringVar(&args.httpEndpoint, "http-endpoint", "", "If not empty will host an HTTP server to retrieve data")
+	flag.StringVar(&args.httpEndpoint, "http-endpoint", "", "If not empty will host an HTTP server to retrieve data. Ex: localhost:3999")
 	flag.StringVar(&args.logFile, "log-file", "", "Log file")
 	flag.StringVar(&args.stopFile, "stop-file", "", "If the file is NOT present, the application will stop")
 	flag.StringVar(&args.javascriptFile, "js-file", "", "JS processor file")
@@ -88,6 +88,9 @@ func consumer(eventChan chan panoptes.Event, errorChan chan error, ctx context.C
 			if jsChan != nil {
 				jsChan <- e
 			} else {
+                        if tempCache != nil {
+                            tempCache.AddEvent(e.Marshalled)
+                        }
 				GLogger.Info().RawJSON("etwEvent", []byte(e.Marshalled)).Str("name", e.Name).Str("guid", e.Guid).Msg("Data")
 			}
 		case err := <-errorChan:
@@ -112,6 +115,9 @@ func jsProcessor(eventChan chan panoptes.Event, jsCtx *duktape.Context, ctx cont
 			if jsCtx.Pcall(1) == 0 {
 				if str := jsCtx.SafeToString(-1); str != "" {
 					GLogger.Info().RawJSON("etwEvent", []byte(str)).Str("name", e.Name).Str("guid", e.Guid).Msg("Data")
+                              if tempCache != nil {
+                                 tempCache.AddEvent(e.Marshalled)
+                              }
 				}
 			}
 			jsCtx.Pop3()
@@ -164,12 +170,20 @@ func main() {
 		handleRequest := func(w http.ResponseWriter, r *http.Request) {
 			nData := tempCache.GetCopyAndClean()
 			w.Write([]byte("["))
-			for _, d := range nData {
-				w.Write([]byte(d + ","))
+                  lenData := len(nData)
+			for x, d := range nData {
+				w.Write(d)
+                        if x < lenData-1 { 
+                            w.Write([]byte(","))
+                        }
 			}
 			w.Write([]byte("]"))
 		}
 		handleGetLogFile := func(w http.ResponseWriter, r *http.Request) {
+                  if args.logFile == "" {
+                      w.WriteHeader(http.StatusNotFound)
+                      return
+                  }
 			if data, err := os.ReadFile(args.logFile); err == nil {
 				if _, err = w.Write(data); err != nil {
 					GLogger.Error().Err(err).Msg("Error sending logfile data")
@@ -185,7 +199,10 @@ func main() {
 			if err := http.ListenAndServe(args.httpEndpoint, nil); err != nil {
 				GLogger.Error().Err(err).Msg("Cannot start HTTP server")
 				stopApplication(cancel, &wg, client)
-			}
+			} else {
+                        //note: we are not waiting for the server to start so logs may be printed before this one..
+                        GLogger.Info().Msg("HTTP Server Listening (/getEvents,/getLogFile)")
+                  }
 
 		}()
 	}

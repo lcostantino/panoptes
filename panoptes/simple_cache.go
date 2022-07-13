@@ -5,11 +5,11 @@ import "sync"
 const MAX_ITEMS int = 2000
 
 type CacheEvent struct {
-	data  []string
+	data  [][]byte
 	mLock sync.Mutex
 }
 
-func (c *CacheEvent) AddEvent(jsonData string) {
+func (c *CacheEvent) AddEvent(jsonData []byte) {
 	c.mLock.Lock()
 
 	defer c.mLock.Unlock()
@@ -19,13 +19,15 @@ func (c *CacheEvent) AddEvent(jsonData string) {
 	c.data = append(c.data, jsonData)
 }
 
-func (c *CacheEvent) GetCopyAndClean() []string {
+func (c *CacheEvent) GetCopyAndClean() [][]byte {
 
-	var dataCopy []string
+	var dataCopy [][]byte
 	c.mLock.Lock()
-
+      if len(c.data) == 0 { 
+          return [][]byte{}
+      }
 	dataCopy = append(dataCopy, c.data...)
-	c.data = []string{}
+	c.data = [][]byte{}
 	c.mLock.Unlock()
 	return dataCopy
 }
