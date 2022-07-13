@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -24,10 +25,10 @@ type PanoptesArgs struct {
 	javascriptFile string
 	consumers      int
 	stopFile       string
+	httpEndpoint   string
 }
 
 func init() {
-
 }
 
 var au aurora.Aurora
@@ -39,6 +40,7 @@ func parseCommandLineAndValidate() PanoptesArgs {
 
 	flag.StringVar(&args.configFile, "config-file", "", "Config file for sensors")
 	flag.BoolVar(&args.stdout, "stdout", true, "Print to stdout")
+	flag.StringVar(&args.httpEndpoint, "http-endpoint", "", "If not empty will host an HTTP server to retrieve data. Ex: localhost:3999")
 	flag.StringVar(&args.logFile, "log-file", "", "Log file")
 	flag.StringVar(&args.stopFile, "stop-file", "", "If the file is NOT present, the application will stop")
 	flag.StringVar(&args.javascriptFile, "js-file", "", "JS processor file")
@@ -70,7 +72,7 @@ func parseConfigFile(fName string) []panoptes.Provider {
 }
 
 //Similar to https://github.com/bi-zone/etw/blob/master/examples/tracer/main.go
-func consumer(eventChan chan panoptes.Event, errorChan chan error, ctx context.Context, jsChan chan panoptes.Event) {
+func consumer(eventChan chan panoptes.Event, errorChan chan error, ctx context.Context, jsChan chan panoptes.Event, tempCache *panoptes.CacheEvent) {
 
 	for {
 		select {
@@ -86,6 +88,9 @@ func consumer(eventChan chan panoptes.Event, errorChan chan error, ctx context.C
 			if jsChan != nil {
 				jsChan <- e
 			} else {
+                        if tempCache != nil {
+                            tempCache.AddEvent(e.Marshalled)
+                        }
 				GLogger.Info().RawJSON("etwEvent", []byte(e.Marshalled)).Str("name", e.Name).Str("guid", e.Guid).Msg("Data")
 			}
 		case err := <-errorChan:
@@ -97,7 +102,7 @@ func consumer(eventChan chan panoptes.Event, errorChan chan error, ctx context.C
 }
 
 //We can create multiples runtimes or in this case, just ONE to avoid locks and shared state for the moment.
-func jsProcessor(eventChan chan panoptes.Event, jsCtx *duktape.Context, ctx context.Context) {
+func jsProcessor(eventChan chan panoptes.Event, jsCtx *duktape.Context, ctx context.Context, tempCache *panoptes.CacheEvent) {
 
 	for {
 		select {
@@ -110,6 +115,9 @@ func jsProcessor(eventChan chan panoptes.Event, jsCtx *duktape.Context, ctx cont
 			if jsCtx.Pcall(1) == 0 {
 				if str := jsCtx.SafeToString(-1); str != "" {
 					GLogger.Info().RawJSON("etwEvent", []byte(str)).Str("name", e.Name).Str("guid", e.Guid).Msg("Data")
+                              if tempCache != nil {
+                                 tempCache.AddEvent(e.Marshalled)
+                              }
 				}
 			}
 			jsCtx.Pop3()
@@ -146,6 +154,7 @@ func main() {
 		}
 	}
 
+	var tempCache *panoptes.CacheEvent
 	eventChan := make(chan panoptes.Event, 10)
 	errorChan := make(chan error)
 	var jsChan chan panoptes.Event
@@ -156,6 +165,47 @@ func main() {
 	defer close(eventChan)
 	defer close(errorChan)
 
+	if args.httpEndpoint != "" {
+
+		handleRequest := func(w http.ResponseWriter, r *http.Request) {
+			nData := tempCache.GetCopyAndClean()
+			w.Write([]byte("["))
+                  lenData := len(nData)
+			for x, d := range nData {
+				w.Write(d)
+                        if x < lenData-1 { 
+                            w.Write([]byte(","))
+                        }
+			}
+			w.Write([]byte("]"))
+		}
+		handleGetLogFile := func(w http.ResponseWriter, r *http.Request) {
+                  if args.logFile == "" {
+                      w.WriteHeader(http.StatusNotFound)
+                      return
+                  }
+			if data, err := os.ReadFile(args.logFile); err == nil {
+				if _, err = w.Write(data); err != nil {
+					GLogger.Error().Err(err).Msg("Error sending logfile data")
+				}
+
+			}
+
+		}
+		http.HandleFunc("/getEvents", handleRequest)
+		http.HandleFunc("/getLogFile", handleGetLogFile)
+		tempCache = &panoptes.CacheEvent{}
+		go func() {
+			if err := http.ListenAndServe(args.httpEndpoint, nil); err != nil {
+				GLogger.Error().Err(err).Msg("Cannot start HTTP server")
+				stopApplication(cancel, &wg, client)
+			} else {
+                        //note: we are not waiting for the server to start so logs may be printed before this one..
+                        GLogger.Info().Msg("HTTP Server Listening (/getEvents,/getLogFile)")
+                  }
+
+		}()
+	}
 	if args.javascriptFile != "" {
 		jsChan = make(chan panoptes.Event, args.consumers)
 		jsCtx := duktape.New()
@@ -201,7 +251,7 @@ func main() {
 			defer jsCtx.DestroyHeap()
 		}
 		go func() {
-			jsProcessor(jsChan, jsCtx, ctx)
+			jsProcessor(jsChan, jsCtx, ctx, tempCache)
 			defer wg.Done()
 		}()
 		wg.Add(1)
@@ -209,7 +259,7 @@ func main() {
 	}
 
 	go func() {
-		consumer(eventChan, errorChan, ctx, jsChan)
+		consumer(eventChan, errorChan, ctx, jsChan, tempCache)
 		defer wg.Done()
 	}()
 	wg.Add(1)
