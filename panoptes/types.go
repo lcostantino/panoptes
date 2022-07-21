@@ -1,6 +1,8 @@
 package panoptes
 
 import (
+	"github.com/google/uuid"
+
 	"golang.org/x/sys/windows"
 )
 
@@ -42,4 +44,5 @@ type Event struct {
 	Guid       string //to avoid header reconstruction on each event
 	Name       string
 	Marshalled []byte //json marshall result
+	SessionId  uuid.UUID
 }

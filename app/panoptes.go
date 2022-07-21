@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lcostantino/Panoptes/panoptes"
 	"github.com/lcostantino/go-duktape"
 	"github.com/logrusorgru/aurora"
@@ -28,7 +29,10 @@ type PanoptesArgs struct {
 	httpEndpoint   string
 }
 
+var SessionId uuid.UUID
+
 func init() {
+	SessionId = uuid.New()
 }
 
 var au aurora.Aurora
@@ -83,14 +87,16 @@ func consumer(eventChan chan panoptes.Event, errorChan chan error, ctx context.C
 			if !ok {
 				return
 			}
+			e.SessionId = SessionId
+			e.EventData["Panoptes"] = map[string]interface{}{"SessionId": SessionId}
 			e.Marshalled, _ = json.Marshal(e.EventData)
 			//If JS enabled let it decide wether to output or not the data
 			if jsChan != nil {
 				jsChan <- e
 			} else {
-                        if tempCache != nil {
-                            tempCache.AddEvent(e.Marshalled)
-                        }
+				if tempCache != nil {
+					tempCache.AddEvent(e.Marshalled)
+				}
 				GLogger.Info().RawJSON("etwEvent", []byte(e.Marshalled)).Str("name", e.Name).Str("guid", e.Guid).Msg("Data")
 			}
 		case err := <-errorChan:
@@ -115,9 +121,9 @@ func jsProcessor(eventChan chan panoptes.Event, jsCtx *duktape.Context, ctx cont
 			if jsCtx.Pcall(1) == 0 {
 				if str := jsCtx.SafeToString(-1); str != "" {
 					GLogger.Info().RawJSON("etwEvent", []byte(str)).Str("name", e.Name).Str("guid", e.Guid).Msg("Data")
-                              if tempCache != nil {
-                                 tempCache.AddEvent(e.Marshalled)
-                              }
+					if tempCache != nil {
+						tempCache.AddEvent(e.Marshalled)
+					}
 				}
 			}
 			jsCtx.Pop3()
@@ -170,20 +176,20 @@ func main() {
 		handleRequest := func(w http.ResponseWriter, r *http.Request) {
 			nData := tempCache.GetCopyAndClean()
 			w.Write([]byte("["))
-                  lenData := len(nData)
+			lenData := len(nData)
 			for x, d := range nData {
 				w.Write(d)
-                        if x < lenData-1 { 
-                            w.Write([]byte(","))
-                        }
+				if x < lenData-1 {
+					w.Write([]byte(","))
+				}
 			}
 			w.Write([]byte("]"))
 		}
 		handleGetLogFile := func(w http.ResponseWriter, r *http.Request) {
-                  if args.logFile == "" {
-                      w.WriteHeader(http.StatusNotFound)
-                      return
-                  }
+			if args.logFile == "" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
 			if data, err := os.ReadFile(args.logFile); err == nil {
 				if _, err = w.Write(data); err != nil {
 					GLogger.Error().Err(err).Msg("Error sending logfile data")
@@ -200,9 +206,9 @@ func main() {
 				GLogger.Error().Err(err).Msg("Cannot start HTTP server")
 				stopApplication(cancel, &wg, client)
 			} else {
-                        //note: we are not waiting for the server to start so logs may be printed before this one..
-                        GLogger.Info().Msg("HTTP Server Listening (/getEvents,/getLogFile)")
-                  }
+				//note: we are not waiting for the server to start so logs may be printed before this one..
+				GLogger.Info().Msg("HTTP Server Listening (/getEvents,/getLogFile)")
+			}
 
 		}()
 	}
