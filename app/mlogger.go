@@ -17,7 +17,7 @@ type Logger struct {
 var GLogger *Logger = nil
 
 //we don't really need a file to log on containers since we capture the output
-func NewLogger(logFile string, verbose bool) *Logger {
+func NewLogger(logFile string, verbose bool, disableColors bool) *Logger {
 	var writers []io.Writer
 	var file *os.File
 	if logFile != "" {
@@ -30,7 +30,7 @@ func NewLogger(logFile string, verbose bool) *Logger {
 	}
 
 	if verbose {
-		writers = append(writers, zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
+		writers = append(writers, zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339, NoColor: disableColors})
 	}
 	mw := io.MultiWriter(writers...)
 

@@ -56,7 +56,9 @@ func parseCommandLineAndValidate() PanoptesArgs {
 		fmt.Println(au.Red("Error: You need to provide a valid config file\n"))
 		os.Exit(1)
 	}
-
+	if args.disableColors == true {
+		au = aurora.NewAurora(false)
+	}
 	return args
 }
 
@@ -71,7 +73,6 @@ func parseConfigFile(fName string) []panoptes.Provider {
 			os.Exit(1)
 		}
 		return mProviders
-
 	}
 	return nil
 	//register your own callback etc..
@@ -142,13 +143,9 @@ func stopApplication(cancelFnc context.CancelFunc, wg *sync.WaitGroup, c *panopt
 
 func main() {
 	au = aurora.NewAurora(true)
-	fmt.Println(au.Sprintf(au.Green("---- [ Panoptes Ver: %s ] ----\n"), au.BrightGreen(version)))
+	fmt.Printf("---- [ Panoptes Ver: %s ] ----\n", version)
 	args := parseCommandLineAndValidate()
-
-	if args.disableColors {
-		au = aurora.NewAurora(false)
-	}
-	NewLogger(args.logFile, args.stdout)
+	NewLogger(args.logFile, args.stdout, args.disableColors)
 
 	client := panoptes.NewClient()
 
