@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"sync"
 	"time"
 
@@ -27,6 +28,7 @@ type PanoptesArgs struct {
 	consumers      int
 	stopFile       string
 	httpEndpoint   string
+	disableColors  bool
 }
 
 var SessionId uuid.UUID
@@ -48,6 +50,7 @@ func parseCommandLineAndValidate() PanoptesArgs {
 	flag.StringVar(&args.logFile, "log-file", "", "Log file")
 	flag.StringVar(&args.stopFile, "stop-file", "", "If the file is NOT present, the application will stop")
 	flag.StringVar(&args.javascriptFile, "js-file", "", "JS processor file")
+	flag.BoolVar(&args.disableColors, "no-colors", false, "Disable color output"))
 	flag.IntVar(&args.consumers, "consumers", 1, "number of consumer routines")
 	flag.Parse()
 	if args.configFile == "" {
@@ -143,6 +146,9 @@ func main() {
 	fmt.Println(au.Sprintf(au.Green("---- [ Panoptes Ver: %s ] ----\n"), au.BrightGreen(version)))
 	args := parseCommandLineAndValidate()
 
+	if args.disableColors {
+		au = aurora.NewAurora(false)
+	}
 	NewLogger(args.logFile, args.stdout)
 
 	client := panoptes.NewClient()
@@ -216,7 +222,6 @@ func main() {
 		jsChan = make(chan panoptes.Event, args.consumers)
 		jsCtx := duktape.New()
 		jsCtx.PushGlobalGoFunction("pLog", func(c *duktape.Context) int {
-
 			fName := c.SafeToString(-2)
 			if fName != "" {
 				if ds, err := os.OpenFile(fName, os.O_APPEND|os.O_CREATE, 0777); err == nil {
@@ -231,6 +236,7 @@ func main() {
 			return 1
 
 		})
+		jsCtx.PushGlobalGoFunction("registerRext")
 		jsCtx.PushTimers()
 		if data, err := os.ReadFile(args.javascriptFile); err != nil {
 			GLogger.Error().Err(err).Msg("Error reading JS file")
