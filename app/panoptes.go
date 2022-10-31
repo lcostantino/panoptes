@@ -235,7 +235,6 @@ func main() {
 			return 1
 
 		})
-		jsCtx.PushGlobalGoFunction("registerRext")
 		jsCtx.PushTimers()
 		if data, err := os.ReadFile(args.javascriptFile); err != nil {
 			GLogger.Error().Err(err).Msg("Error reading JS file")
