@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"regexp"
 	"sync"
 	"time"
 
@@ -50,7 +49,7 @@ func parseCommandLineAndValidate() PanoptesArgs {
 	flag.StringVar(&args.logFile, "log-file", "", "Log file")
 	flag.StringVar(&args.stopFile, "stop-file", "", "If the file is NOT present, the application will stop")
 	flag.StringVar(&args.javascriptFile, "js-file", "", "JS processor file")
-	flag.BoolVar(&args.disableColors, "no-colors", false, "Disable color output"))
+	flag.BoolVar(&args.disableColors, "no-colors", false, "Disable color output")
 	flag.IntVar(&args.consumers, "consumers", 1, "number of consumer routines")
 	flag.Parse()
 	if args.configFile == "" {
