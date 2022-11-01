@@ -52,6 +52,7 @@ This project uses [GoReleaser](https://goreleaser.com), execute build.sh or buil
 
 
 ## Usage
+```
 Usage of panoptes.exe:
   -config-file string
         Config file for sensors
@@ -65,6 +66,10 @@ Usage of panoptes.exe:
         Print to stdout (default true)
   -stop-file string
         If the file is not present Panoptes will stop
+  -no-colors
+        Disable colors
+   -http-endpoint string
+        If not empty will host an HTTP server to retrieve data. Ex: localhost:3999   
 
 ```
 
@@ -75,6 +80,7 @@ Just define a function named "panoptesProcess" that will receive a JSON String w
 
 To print data to stdout just return a string here or use console.log. 
 To STOP printing the msg outside of JS or if you want to filter the EVENT just return an EMPTY string.
+
 ```js
 function panoptesProcess(jsonData) {
     jsObject = JSON.parse(jsonData)
@@ -86,5 +92,18 @@ function panoptesProcess(jsonData) {
 
 ### Special JS Bindings
 
+```
 func pLog(dstFile, str) -> Log to a specific file, ex: pLog("C:\\tmp\\a.txt", "Weird Process found")
+```
+
+## Http 
+
+When starting panoptes with `-http-endpoint` option you can request captured data by:
+
+  1. curl http://localhost:yourport/getEvents
+  2. curl http://localhost:yourport/getLogFile
+
+Note: events are kept in memory for getEvents so invoke this url periodically to flush data.
+
+
 
