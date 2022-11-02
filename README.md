@@ -106,4 +106,11 @@ When starting panoptes with `-http-endpoint` option you can request captured dat
 Note: events are kept in memory for getEvents so invoke this url periodically to flush data.
 
 
+## Panoptes Specific Fields
 
+Each object will include a Panoptes object with a SessionId that will remain the same during execution. (Will change on every app start)
+```json
+ "Panoptes": {
+        "SessionId": "89b76852-97e4-4f9b-baf6-7d71d7e5d6b8"
+ }
+```
