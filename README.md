@@ -101,9 +101,16 @@ func pLog(dstFile, str) -> Log to a specific file, ex: pLog("C:\\tmp\\a.txt", "W
 When starting panoptes with `-http-endpoint` option you can request captured data by:
 
   1. curl http://localhost:yourport/getEvents
-  2. curl http://localhost:yourport/getLogFile
+  2. curl http://localhost:yourport/getLogFile (This require -log-file parameter to return the entire file)
 
 Note: events are kept in memory for getEvents so invoke this url periodically to flush data.
 
 
+## Panoptes Specific Fields
 
+Each object will include a Panoptes object with a SessionId that will remain the same during execution. (Will change on every app start)
+```json
+ "Panoptes": {
+        "SessionId": "89b76852-97e4-4f9b-baf6-7d71d7e5d6b8"
+ }
+```
