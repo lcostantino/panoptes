@@ -5,7 +5,8 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/bi-zone/etw"
+	//	"github.com/bi-zone/etw"
+	"github.com/lcostantino/etw"
 	"golang.org/x/sys/windows"
 )
 
@@ -76,7 +77,7 @@ func (c *Client) Start(eventChan chan Event, errorChan chan error) error {
 		if sess, err := etw.NewSession(r.winGuid, etw.WithLevel(aLevel), etw.WithMatchKeywords(anyKeyword, allKeyword)); err == nil {
 			c.currentSessions = append(c.currentSessions, sess)
 
-			go func(guid, name string, filterIds []uint16) {
+			go func(guid, name string, filterIds []uint16, includeRaw bool) {
 				c.wg.Add(1)
 				if err := sess.Process(func(e *etw.Event) {
 					if filterIds != nil && len(filterIds) > 0 {
@@ -97,17 +98,21 @@ func (c *Client) Start(eventChan chan Event, errorChan chan error) error {
 					event["Header"] = e.Header
 					//Ideally, this will encoded base64 the raw data so it can be parsed with JS :)
 					event["ExtendedData"] = e.ExtendedInfo()
-					if data, err := e.EventProperties(); err == nil {
+					if data, err := e.EventProperties(includeRaw); err == nil {
 						event["Props"] = data
 					} else {
 						errorChan <- err
 					}
+					if includeRaw {
+						event["RawData"] = e.RawEncodedEvent
+					}
+
 					eventChan <- Event{EventData: event, Name: name, Guid: guid}
 				}); err != nil {
 					errorChan <- err
 				}
 				defer c.wg.Done()
-			}(r.Guid, r.Name, r.Options.FilterEventIds)
+			}(r.Guid, r.Name, r.Options.FilterEventIds, r.IncludeRawEvent)
 		} else {
 			return err
 		}

@@ -172,7 +172,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer close(eventChan)
 	defer close(errorChan)
-
+	// Start HTTP Functionality
 	if args.httpEndpoint != "" {
 
 		handleRequest := func(w http.ResponseWriter, r *http.Request) {
@@ -213,10 +213,13 @@ func main() {
 			}
 
 		}()
+		// End HTTP Functionality
 	}
+	// Start JS Functionality
 	if args.javascriptFile != "" {
 		jsChan = make(chan panoptes.Event, args.consumers)
 		jsCtx := duktape.New()
+
 		jsCtx.PushGlobalGoFunction("pLog", func(c *duktape.Context) int {
 			fName := c.SafeToString(-2)
 			if fName != "" {
@@ -262,7 +265,7 @@ func main() {
 			defer wg.Done()
 		}()
 		wg.Add(1)
-
+		// End JS Functionality
 	}
 
 	go func() {

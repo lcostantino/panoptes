@@ -31,12 +31,13 @@ const (
 )
 
 type Provider struct {
-	Guid     string         `json:"guid"`
-	Name     string         `json:"name"`
-	Options  SessionOptions `json:"options"`
-	Report   ReportMode     `json:"report"`
-	winGuid  windows.GUID
-	Disabled bool `json:"disabled"`
+	Guid            string         `json:"guid"`
+	Name            string         `json:"name"`
+	Options         SessionOptions `json:"options"`
+	Report          ReportMode     `json:"report"`
+	winGuid         windows.GUID
+	Disabled        bool `json:"disabled"`
+	IncludeRawEvent bool `json:"rawData"`
 }
 
 type Event struct {
