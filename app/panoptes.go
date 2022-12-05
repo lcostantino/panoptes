@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -10,11 +11,14 @@ import (
 	"os/signal"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/google/uuid"
 	"github.com/lcostantino/Panoptes/panoptes"
 	"github.com/lcostantino/go-duktape"
 	"github.com/logrusorgru/aurora"
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/unicode"
 )
 
 var version = "replace"
@@ -220,6 +224,36 @@ func main() {
 		jsChan = make(chan panoptes.Event, args.consumers)
 		jsCtx := duktape.New()
 
+		jsCtx.PushGlobalGoFunction("convertStringToUtf8", func(c *duktape.Context) int {
+			if c.GetTop() == 4 && c.IsBuffer(-4) && c.IsString(-1) && c.IsNumber(-2) && c.IsNumber(-3) {
+				var decoder *encoding.Decoder
+				switch fromEncoding := c.SafeToString(-1); fromEncoding {
+				case "utf-16le":
+					decoder = unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+				case "utf-16":
+					decoder = unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewDecoder()
+				default:
+					GLogger.Error().Msg(fmt.Sprintf("Invalid encoding %s valid are (utf-16,utf-16le)", fromEncoding))
+					return -1
+				}
+
+				lastIndex := c.GetInt(-2)
+				fromIndex := c.GetInt(-3)
+				myBuffer, len := c.GetBuffer(-4)
+				if myBuffer != nil {
+
+					if outData, err := decoder.Bytes(unsafe.Slice((*uint8)(unsafe.Pointer(myBuffer)), len)[fromIndex:lastIndex]); err == nil {
+						c.PushString(string(outData))
+						return 1
+					} else {
+						GLogger.Error().Err(err).Msg("Invalid convertString decoder.Bytes")
+						return -1
+					}
+				}
+			}
+			GLogger.Error().Err(errors.New("Invalid argument count")).Msg("Invalid convertString call")
+			return -1
+		})
 		jsCtx.PushGlobalGoFunction("pLog", func(c *duktape.Context) int {
 			fName := c.SafeToString(-2)
 			if fName != "" {
@@ -232,7 +266,7 @@ func main() {
 
 				}
 			}
-			return 1
+			return -1
 
 		})
 		jsCtx.PushTimers()
