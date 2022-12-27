@@ -26,6 +26,7 @@ This project uses [GoReleaser](https://goreleaser.com), execute build.sh or buil
 |guid|string|A valid GUID provider|
 |disabled|bool|Enable/Disable subscription|
 |report|string|Only json is valid today|
+|rawData|bool|If true ETW Raw data will be inclued as base64 encoded data at jsObject["RawData"]|
 |option.level|number|ETW lvl LogAlways (0x0), Critical (0x1), Error (0x2), Warning (0x3), Information (0x4), erbose (0x5)|
 |option.matchAnyKeyword|number|https://docs.microsoft.com/en-us/windows/win32/api/evntrace/nf-evntrace-enabletraceex2|
 |option.matchAllKeyword|number|https://docs.microsoft.com/en-us/windows/win32/api/evntrace/nf-evntrace-enabletraceex2|
@@ -84,6 +85,7 @@ To STOP printing the msg outside of JS or if you want to filter the EVENT just r
 ```js
 function panoptesProcess(jsonData) {
     jsObject = JSON.parse(jsonData)
+    rawData = jsObject["RawData"] //ONLY IF ENABLED BY CONFIG rawData: true
     jsObject["modifiedFromJS"] = 1
     //return empty string to avoid logging the event
     return  JSON.stringify(jsObject)
@@ -94,7 +96,17 @@ function panoptesProcess(jsonData) {
 
 ```
 func pLog(dstFile, str) -> Log to a specific file, ex: pLog("C:\\tmp\\a.txt", "Weird Process found")
+
+func convertStringToUtf8(bytes, start_pos, end_post, utf16 encoding) -> convertStringToUtf8(service_event, 14, idx, "utf-16le")
 ```
+Duktape bindings can also be accessed via Duktape object. See (Builtin-Duktape) (https://duktape.org/guide.html#builtin-duktape)
+
+
+### Parsing ETW Raw Data
+
+It's possible to receive Base64 encoded event raw data and process it using JS. 
+An example of how to parse Service Manager Provider is located at https://github.com/lcostantino/panoptes/blob/main/app/processors/serviceRawProcessor.js
+
 
 ## Http 
 
